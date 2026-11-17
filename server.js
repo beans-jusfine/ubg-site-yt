@@ -14,7 +14,7 @@ async function getJson(url, ms=7000) {
 async function invidiousInstances() {
   try {
     const data = await getJson('https://api.invidious.io/instances.json?pretty=1&sort_by=health',5000);
-    const found = (Array.isArray(data)?data.map(x=>Array.isArray(x)?x[1]:x):Object.values(data))
+    const found = (Array.isArray(data)?data.map(x=>Array.isArray(x)?{...x[1],uri:x[0]}:x):Object.values(data))
       .filter(x=>x&&x.api!==false&&x.uri&&String(x.type||'https')==='https')
       .map(x=>String(x.uri).replace(/\/$/,''));
     return [...new Set([...found,...IV_FALLBACK])].slice(0,6);
@@ -60,6 +60,14 @@ async function videoDetails(id) {
 function sendJson(res,status,data){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','Access-Control-Allow-Origin':'*'});res.end(JSON.stringify(data));}
 const server = http.createServer(async (req,res) => {
   const url = new URL(req.url, 'http://localhost');
+  if(url.pathname==='/api/suggest') {
+    try {
+      const q=(url.searchParams.get('q')||'').trim().slice(0,100);
+      if(q.length<2) return sendJson(res,200,{suggestions:[]});
+      const data=await getJson('https://suggestqueries.google.com/complete/search?'+new URLSearchParams({client:'firefox',ds:'yt',q}),5000);
+      return sendJson(res,200,{suggestions:Array.isArray(data[1])?data[1].slice(0,10):[]});
+    } catch(e) { return sendJson(res,200,{suggestions:[]}); }
+  }
   if(url.pathname==='/api/search' || url.pathname.startsWith('/api/video/')) {
     try {
       if(url.pathname==='/api/search') {
