@@ -7,7 +7,7 @@ const types = {'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-
 const IV_FALLBACK = ['https://inv.nadeko.net','https://invidious.nerdvpn.de','https://yt.chocolatemoo53.com','https://invidious.tiekoetter.com'];
 const PI_FALLBACK = ['https://pipedapi.kavin.rocks','https://pipedapi.leptons.xyz','https://pipedapi.nosebs.ru','https://pipedapi-libre.kavin.rocks','https://piped-api.privacy.com.de','https://pipedapi.adminforge.de','https://api.piped.yt','https://pipedapi.drgns.space','https://pipedapi.owo.si','https://api.piped.private.coffee'];
 async function getJson(url, ms=7000) {
-  const response = await fetch(url, {headers:{Accept:'application/json','User-Agent':'NERO-Tube/1.0'},signal:AbortSignal.timeout(ms)});
+  const response = await fetch(url, {headers:{Accept:'application/json','Accept-Language':'en-US,en;q=0.9','User-Agent':'NERO-Tube/1.0'},signal:AbortSignal.timeout(ms)});
   if (!response.ok) throw new Error('HTTP '+response.status);
   return response.json();
 }
@@ -37,7 +37,7 @@ async function firstWorking(bases, makeRequest) {
 async function searchVideos(q,page) {
   try {
     return await firstWorking(await invidiousInstances(),async base=>{
-      const data=await getJson(base+'/api/v1/search?'+new URLSearchParams({q,page:String(page),type:'video',sort:'relevance',region:'US'}),5000);
+      const data=await getJson(base+'/api/v1/search?'+new URLSearchParams({q,page:String(page),type:'video',sort:'relevance',region:'US',hl:'en'}),5000);
       return Array.isArray(data)&&data.length?{items:data,provider:'Invidious',base}:null;
     });
   } catch {}
@@ -50,7 +50,7 @@ async function searchVideos(q,page) {
 async function videoDetails(id) {
   try {
     return await firstWorking(await invidiousInstances(),async base=>({
-      video:await getJson(base+'/api/v1/videos/'+encodeURIComponent(id),5000),provider:'Invidious',base
+      video:await getJson(base+'/api/v1/videos/'+encodeURIComponent(id)+'?hl=en',5000),provider:'Invidious',base
     }));
   } catch {}
   return firstWorking(await pipedInstances(),async base=>({
