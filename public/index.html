@@ -10,21 +10,22 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="/" aria-label="NERO Tube home"><span class="brand-mark">▶</span><strong>NERO</strong><span class="brand-sub">Tube</span><span class="brand-credit">made by beans.jusfine</span></a>
-    <form id="search-form" class="search"><input id="query" autocomplete="off" placeholder="Search videos" aria-label="Search videos"><button aria-label="Search">⌕</button></form>
-    <button id="settings-toggle" class="icon-btn" aria-label="Provider settings" title="Settings">⚙</button>
+    <a class="brand" href="/" aria-label="NERO Tube home"><span class="brand-mark"><i data-lucide="play-square"></i></span><strong>NERO</strong><span class="brand-sub">Tube</span><span class="brand-credit">made by beans.jusfine</span></a>
+    <form id="search-form" class="search"><input id="query" autocomplete="off" placeholder="Search videos" aria-label="Search videos"><button aria-label="Search"><i data-lucide="search"></i></button></form>
+    <button id="settings-toggle" class="icon-btn" aria-label="Provider settings" title="Settings"><i data-lucide="sliders-horizontal"></i></button>
   </header>
   <div id="settings" class="settings" hidden><div><strong>Video sources</strong><span id="provider-status">Discovering public instances…</span></div><p>NERO Tube searches public Invidious instances first and falls back to Piped. Public instances can occasionally be unavailable.</p></div>
   <div class="layout">
     <aside class="sidebar">
-      <button class="nav-item active" data-page="home"><span>⌂</span> Home</button>
-      <button class="nav-item" data-page="shorts"><span>▣</span> Shorts</button>
+      <button class="nav-item active" data-page="home"><i data-lucide="house"></i> Home</button>
+      <button class="nav-item" data-page="shorts"><i data-lucide="clapperboard"></i> Shorts</button>
       <div class="nav-sep"></div>
-      <button class="nav-item" data-page="saved"><span>▣</span> Saved</button>
-      <button class="nav-item" data-page="history"><span>◷</span> History</button>
+      <button class="nav-item" data-page="saved"><i data-lucide="bookmark"></i> Saved</button>
+      <button class="nav-item" data-page="history"><i data-lucide="history"></i> History</button>
       <div class="sidebar-foot">NERO <span>Beyond the ordinary.</span></div>
     </aside>
     <main>
@@ -44,11 +45,12 @@
   </div>
   <div id="player" class="player" hidden>
     <div class="player-panel">
-      <div class="player-head"><div><strong id="player-title">Now playing</strong><span id="player-source"></span></div><button id="close-player" class="close-btn" aria-label="Close player">✕</button></div>
+      <div class="player-head"><div><strong id="player-title">Now playing</strong><span id="player-source"></span></div><button id="close-player" class="close-btn" aria-label="Close player"><i data-lucide="x"></i></button></div>
       <div id="stage" class="stage"></div>
-      <div class="player-actions"><button id="share-video">↗ Share video</button><button id="save-current">＋ Save video</button></div>
+      <div class="player-actions"><button id="share-video"><i data-lucide="share-2"></i> Share video</button><button id="save-current"><i data-lucide="bookmark-plus"></i> Save video</button></div>
     </div>
   </div>
   <script src="/app.js" defer></script>
+<script>window.addEventListener("DOMContentLoaded",()=>window.lucide?.createIcons());</script>
 </body>
 </html>
