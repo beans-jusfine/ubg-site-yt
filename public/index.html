@@ -44,10 +44,33 @@
     </main>
   </div>
   <div id="player" class="player" hidden>
-    <div class="player-panel">
-      <div class="player-head"><div><strong id="player-title">Now playing</strong><span id="player-source"></span></div><button id="close-player" class="close-btn" aria-label="Close player"><i data-lucide="x"></i></button></div>
-      <div id="stage" class="stage"></div>
-      <div class="player-actions"><button id="share-video"><i data-lucide="share-2"></i> Share video</button><button id="save-current"><i data-lucide="bookmark-plus"></i> Save video</button></div>
+    <div class="watch-shell">
+      <aside class="watch-sidebar">
+        <button id="close-player" class="watch-back"><i data-lucide="arrow-left"></i><span>Back to NERO</span></button>
+        <div class="watch-nav-item active"><i data-lucide="house"></i> Home</div>
+        <div class="watch-nav-item"><i data-lucide="clapperboard"></i> Shorts</div>
+        <div class="watch-nav-sep"></div>
+        <div class="watch-nav-item"><i data-lucide="bookmark"></i> Saved</div>
+        <div class="watch-nav-item"><i data-lucide="history"></i> History</div>
+      </aside>
+      <main class="watch-main">
+        <section class="watch-primary">
+          <div id="stage" class="stage"></div>
+          <h1 id="player-title" class="watch-title">Now playing</h1>
+          <div class="watch-channel-row">
+            <div class="watch-channel"><div id="player-avatar" class="watch-avatar">N</div><div><strong id="player-author">YouTube</strong><span id="player-channel-label">Video creator</span></div></div>
+            <button id="subscribe-btn" class="subscribe-btn">Subscribe</button>
+            <div class="watch-spacer"></div>
+            <button id="share-video" class="watch-action"><i data-lucide="share-2"></i> Share</button>
+            <button id="save-current" class="watch-action"><i data-lucide="bookmark-plus"></i> Save</button>
+          </div>
+          <div class="watch-description"><strong id="watch-stats">Video details</strong><p id="watch-description-text">Watch this video on NERO Tube.</p><button id="description-toggle">Show more</button></div>
+        </section>
+        <aside class="up-next">
+          <div class="up-next-head"><strong>Up next</strong><label>Autoplay <input id="autoplay-toggle" type="checkbox" checked><span class="toggle-track"></span></label></div>
+          <div id="up-next-list" class="up-next-list"></div>
+        </aside>
+      </main>
     </div>
   </div>
   <script src="/app.js" defer></script>
