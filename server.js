@@ -5,7 +5,7 @@ const path = require('node:path');
 const root = path.join(__dirname, 'public');
 const types = {'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.json':'application/json; charset=utf-8','.svg':'image/svg+xml'};
 const IV_FALLBACK = ['https://inv.nadeko.net','https://invidious.nerdvpn.de','https://yt.chocolatemoo53.com','https://invidious.tiekoetter.com'];
-const PI_FALLBACK = ['https://pipedapi.kavin.rocks','https://pipedapi.leptons.xyz','https://pipedapi.nosebs.ru','https://pipedapi-libre.kavin.rocks','https://piped-api.privacy.com.de','https://pipedapi.adminforge.de','https://api.piped.yt','https://pipedapi.drgns.space','https://pipedapi.owo.si','https://api.piped.private.coffee'];
+const PI_FALLBACK = ['https://api.piped.private.coffee','https://pipedapi.ducks.party','https://pipedapi.kavin.rocks','https://pipedapi.leptons.xyz','https://pipedapi.nosebs.ru','https://pipedapi-libre.kavin.rocks','https://piped-api.privacy.com.de','https://pipedapi.adminforge.de','https://api.piped.yt','https://pipedapi.drgns.space','https://pipedapi.owo.si'];
 async function getJson(url, ms=7000) {
   const response = await fetch(url, {headers:{Accept:'application/json','Accept-Language':'en-US,en;q=0.9','User-Agent':'NERO-Tube/1.0'},signal:AbortSignal.timeout(ms)});
   if (!response.ok) throw new Error('HTTP '+response.status);
@@ -29,10 +29,16 @@ async function pipedInstances() {
   return [...new Set(list)].slice(0,6);
 }
 async function firstWorking(bases, makeRequest) {
-  const results=await Promise.allSettled(bases.map(base=>makeRequest(base)));
-  const found=results.find(x=>x.status==='fulfilled'&&x.value);
-  if(found)return found.value;
-  throw new Error('All public video instances failed');
+  const attempts=bases.map(async base=>{
+    const value=await makeRequest(base);
+    if(!value) throw new Error(base+' returned no results');
+    return value;
+  });
+  try { return await Promise.any(attempts); }
+  catch(error) {
+    const reasons=(error.errors||[]).map(x=>String(x.message||x)).slice(0,5);
+    throw new Error('All public video instances failed'+(reasons.length?': '+reasons.join(' | '):''));
+  }
 }
 async function searchVideos(q,page) {
   try {
@@ -60,6 +66,13 @@ async function videoDetails(id) {
 function sendJson(res,status,data){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','Access-Control-Allow-Origin':'*'});res.end(JSON.stringify(data));}
 const server = http.createServer(async (req,res) => {
   const url = new URL(req.url, 'http://localhost');
+  if(url.pathname==='/api/health/providers') {
+    const checks=await Promise.all([
+      ...IV_FALLBACK.map(async base=>{const started=Date.now();try{await getJson(base+'/api/v1/search?'+new URLSearchParams({q:'test',type:'video'}),6500);return {provider:'Invidious',base,ok:true,ms:Date.now()-started};}catch(e){return {provider:'Invidious',base,ok:false,ms:Date.now()-started,error:String(e.message||e)};}}),
+      ...PI_FALLBACK.map(async base=>{const started=Date.now();try{await getJson(base+'/search?'+new URLSearchParams({q:'test',filter:'videos'}),6500);return {provider:'Piped',base,ok:true,ms:Date.now()-started};}catch(e){return {provider:'Piped',base,ok:false,ms:Date.now()-started,error:String(e.message||e)};}})
+    ]);
+    return sendJson(res,200,{ok:checks.some(x=>x.ok),checkedAt:new Date().toISOString(),checks});
+  }
   if(url.pathname==='/api/suggest') {
     try {
       const q=(url.searchParams.get('q')||'').trim().slice(0,100);
