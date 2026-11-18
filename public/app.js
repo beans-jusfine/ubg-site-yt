@@ -24,8 +24,36 @@ async function search(q=query,append=false){if(busy)return;busy=true;query=q;rem
 async function details(id){const data=await json('/api/video/'+encodeURIComponent(id),18000);return normalize(data.video,data.provider||'YouTube',data.base||'')}
 async function personalizedFeed(){if(busy)return;const searches=read(SEARCHES),watched=read(HISTORY).slice().reverse(),candidates=[];for(const x of searches.slice(0,8)){const q=String(x.q||x).trim();if(q)candidates.push(q)}for(const x of watched.slice(0,12)){const title=String(x.title||'').trim(),author=String(x.author||'').trim();if(title)candidates.push([title.split(/\\s+/).slice(0,5).join(' '),author].filter(Boolean).join(' '));else if(author)candidates.push(author+' videos')}const terms=[...new Set(candidates)].slice(0,4);if(!terms.length){search('popular videos');return}busy=true;status('Building your mix from your searches and watches…');let combined=[];try{const batches=await Promise.all(terms.map(async q=>{try{const d=await json('/api/search?q='+encodeURIComponent(q)+'&page=1',18000);return(Array.isArray(d.items)?d.items:[]).map(v=>normalize(v,d.provider||'YouTube',d.base||'')).filter(Boolean)}catch{return[]}}));const seen=new Set();for(const batch of batches)for(const v of batch)if(!seen.has(v.id)){seen.add(v.id);combined.push(v)}}finally{busy=false}if(!combined.length){search('popular videos');return}render(combined);$('#provider-status').textContent='Personalized mix · based on your activity';status('Your mix · based on '+searches.length+' searches and '+watched.length+' watches');$('#load-more').hidden=true}
 function renderUpNext(){const list=items.filter(x=>x.id!==currentVideo?.id).slice(0,12);$('#up-next-list').innerHTML=list.map(v=>'<button class="up-next-item" data-next="'+esc(v.id)+'"><span class="up-next-thumb"><img src="'+esc(v.thumb)+'" alt="" loading="lazy">'+(v.duration?'<span class="video-duration">'+esc(v.duration)+'</span>':'')+'</span><span class="up-next-info"><strong>'+esc(v.title)+'</strong><span>'+esc(v.author)+'</span></span></button>').join('')||'<p class="up-next-empty">Search results and recommendations will appear here.</p>'}
-function play(v,updateUrl=true){currentVideo=v;const src='https://www.youtube.com/embed/'+encodeURIComponent(v.id)+'?autoplay=1&playsinline=1&rel=0';$('#player-title').textContent=v.title;$('#player-author').textContent=v.author||'YouTube';$('#player-avatar').innerHTML=v.avatar?'<img src="'+esc(v.avatar)+'" alt="" referrerpolicy="no-referrer">':esc((v.author||'N').slice(0,1).toUpperCase());$('#player-channel-label').textContent='NERO Tube channel';$('#watch-stats').textContent=[v.views,v.published].filter(Boolean).join(' · ')||'Watch on NERO Tube';$('#watch-description-text').textContent='You are watching '+v.title+' by '+(v.author||'YouTube')+'. Video playback is provided by the official YouTube player.';$('#description-toggle').textContent='Show more';$('#stage').innerHTML='<iframe src="'+src+'" title="'+esc(v.title)+'" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>';$('#player').hidden=false;renderUpNext();const h=read(HISTORY).filter(x=>x.id!==v.id);h.push({id:v.id,title:v.title,author:v.author,at:Date.now()});write(HISTORY,h.slice(-100));updateSaveButton();if(updateUrl){const u=new URL(location.href);u.searchParams.set('v',v.id);history.pushState({video:v.id},'',u)}}
-function closePlayer(updateUrl=true){$('#player').hidden=true;$('#stage').innerHTML='';if(updateUrl){const u=new URL(location.href);u.searchParams.delete('v');history.pushState({},'',u)}currentVideo=null}
+let playerSourcesList=[],playerSourceIndex=0;
+function buildPlayerSources(v){
+ const hosts=[...(v.source==='Invidious'&&v.base?[v.base]:[]),...IV_FALLBACK];
+ const unique=[...new Set(hosts.map(x=>String(x).replace(/\\/$/,'')))];
+ const sources=unique.map(host=>({label:'Invidious · '+new URL(host).host,url:host+'/embed/'+encodeURIComponent(v.id)+'?autoplay=1&controls=1&hl=en-US&local=true&player_style=youtube'}));
+ sources.push({label:'Piped',url:'https://piped.video/embed/'+encodeURIComponent(v.id)});
+ sources.push({label:'YouTube',url:'https://www.youtube.com/embed/'+encodeURIComponent(v.id)+'?autoplay=1&playsinline=1&rel=0'});
+ return sources;
+}
+function setPlayerSource(index){
+ if(!playerSourcesList.length)return;
+ playerSourceIndex=(index+playerSourcesList.length)%playerSourcesList.length;
+ const source=playerSourcesList[playerSourceIndex],frame=$('#video-frame');
+ frame.src=source.url;
+ $('#player-source-label').textContent='Player: '+source.label;
+ $('#player-source-count').textContent=(playerSourceIndex+1)+' / '+playerSourcesList.length;
+}
+function play(v,updateUrl=true){
+ currentVideo=v;playerSourcesList=buildPlayerSources(v);
+ $('#player-title').textContent=v.title;$('#player-author').textContent=v.author||'YouTube';
+ $('#player-avatar').innerHTML=v.avatar?'<img src="'+esc(v.avatar)+'" alt="" referrerpolicy="no-referrer">':esc((v.author||'N').slice(0,1).toUpperCase());
+ $('#player-channel-label').textContent='NERO Tube channel';
+ $('#watch-stats').textContent=[v.views,v.published].filter(Boolean).join(' · ')||'Watch on NERO Tube';
+ $('#watch-description-text').textContent='You are watching '+v.title+' by '+(v.author||'YouTube')+'. NERO Tube tries alternative video frontends if playback is unavailable.';
+ $('#description-toggle').textContent='Show more';
+ $('#stage').innerHTML='<iframe id="video-frame" title="'+esc(v.title)+'" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>';
+ setPlayerSource(0);$('#player').hidden=false;renderUpNext();
+ const h=read(HISTORY).filter(x=>x.id!==v.id);h.push({id:v.id,title:v.title,author:v.author,at:Date.now()});write(HISTORY,h.slice(-100));
+ updateSaveButton();if(updateUrl){const u=new URL(location.href);u.searchParams.set('v',v.id);history.pushState({video:v.id},'',u)}
+}(updateUrl=true){$('#player').hidden=true;$('#stage').innerHTML='';if(updateUrl){const u=new URL(location.href);u.searchParams.delete('v');history.pushState({},'',u)}currentVideo=null}
 function updateSaveButton(){if(!currentVideo)return;const yes=read(SAVED).some(x=>x.id===currentVideo.id);$('#save-current').innerHTML=yes?'<i data-lucide="bookmark-check"></i> Saved':'<i data-lucide="bookmark-plus"></i> Save';renderIcons()}
 function saveVideo(id){const a=read(SAVED),i=a.findIndex(x=>x.id===id);if(i>=0)a.splice(i,1);else a.push({id,at:Date.now()});write(SAVED,a);if(currentVideo?.id===id)updateSaveButton();if(pageName==='saved')loadLocal('saved');else render(items)}
 async function loadLocal(which){const arr=read(which==='saved'?SAVED:HISTORY);$('#load-more').hidden=true;$('#page-title').textContent=which==='saved'?'Saved videos':'Watch history';if(!arr.length){render([]);$('#grid').innerHTML='<p class="empty">'+(which==='saved'?'No saved videos yet.':'No watch history yet.')+'</p>';status(which==='saved'?'Saved videos':'Watch history');return}busy=true;status('Loading '+which+'…');try{const found=[];for(const item of arr.slice().reverse().slice(0,30)){try{const v=await details(item.id);if(v)found.push(v)}catch{}}render(found);status(found.length+' videos · '+provider)}finally{busy=false}}
@@ -37,6 +65,7 @@ $('#grid').addEventListener('click',e=>{const p=e.target.closest('[data-play]'),
 $('#load-more').onclick=()=>{page++;search(query,true)};
 $('#settings-toggle').onclick=()=>$('#settings').hidden=!$('#settings').hidden;
 $('#close-player').onclick=()=>closePlayer();
+$('#try-player-again').onclick=()=>setPlayerSource(playerSourceIndex+1);
 $('#player').addEventListener('click',e=>{if(e.target===$('#player'))closePlayer()});
 $('#up-next-list').addEventListener('click',e=>{const b=e.target.closest('[data-next]');if(!b)return;const v=items.find(x=>x.id===b.dataset.next);if(v)play(v)});
 $('#subscribe-btn').onclick=()=>{const b=$('#subscribe-btn');b.classList.toggle('subscribed');b.textContent=b.classList.contains('subscribed')?'Subscribed':'Subscribe'};

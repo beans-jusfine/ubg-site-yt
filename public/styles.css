@@ -134,3 +134,7 @@ body{background:#0f0f0f}
 .up-next-empty{color:#999;font-size:13px}
 @media(max-width:1000px){.watch-sidebar{width:190px}.watch-main{margin-left:190px;padding:18px;grid-template-columns:minmax(0,1fr)}.up-next-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:700px){.watch-sidebar{display:none}.watch-main{margin:0;padding:0 0 28px;display:flex;flex-direction:column;gap:18px}.watch-primary,.up-next{width:100%;padding:0 12px}.stage{border-radius:0;aspect-ratio:16/9}.watch-title{font-size:17px;margin:12px 0}.watch-channel-row{gap:8px}.watch-action{padding:9px 11px;font-size:12px}.watch-spacer{display:none}.watch-description{border-radius:9px}.up-next-list{display:flex}.up-next-head{padding-top:2px}.up-next-item{grid-template-columns:42% minmax(0,1fr)}}
+
+
+/* Alternative player controls */
+.player-fallback{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 2px;color:#aaa;font-size:12px}.player-fallback button,.player-fallback a{border:1px solid #383838;border-radius:18px;background:#222;color:#eee;padding:7px 12px;font:inherit;text-decoration:none;cursor:pointer}.player-fallback button:hover,.player-fallback a:hover{background:#303030;color:#fff}#player-source-count{color:#777}
