@@ -73,7 +73,7 @@ async function playbackSources(id) {
     return await firstWorking(await invidiousInstances(), async base => {
       const data = await getJson(base+'/api/v1/videos/'+encodeURIComponent(id)+'?hl=en',6500);
       const streams = (data.formatStreams || [])
-        .filter(x => x && x.url && String(x.type || x.mimeType || '').includes('video/mp4'))
+        .filter(x => x && x.url && String(x.type || x.mimeType || '').toLowerCase().includes('video/mp4'))
         .map(x => ({url:x.url,label:x.qualityLabel || x.quality || 'MP4',type:x.type || x.mimeType || 'video/mp4',provider:'Invidious'}));
       return streams.length ? {provider:'Invidious',base,streams} : null;
     });
