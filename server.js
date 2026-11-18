@@ -5,7 +5,7 @@ const path = require('node:path');
 const root = path.join(__dirname, 'public');
 const types = {'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.json':'application/json; charset=utf-8','.svg':'image/svg+xml'};
 const IV_FALLBACK = ['https://inv.nadeko.net','https://invidious.nerdvpn.de','https://yt.chocolatemoo53.com','https://invidious.tiekoetter.com'];
-const PI_FALLBACK = ['https://api.piped.private.coffee','https://pipedapi.ducks.party','https://pipedapi.kavin.rocks','https://pipedapi.leptons.xyz','https://pipedapi.nosebs.ru','https://pipedapi-libre.kavin.rocks','https://piped-api.privacy.com.de','https://pipedapi.adminforge.de','https://api.piped.yt','https://pipedapi.drgns.space','https://pipedapi.owo.si'];
+const PI_FALLBACK = ['https://api.piped.private.coffee','https://pipedapi.ducks.party'];
 async function getJson(url, ms=7000) {
   const response = await fetch(url, {headers:{Accept:'application/json','Accept-Language':'en-US,en;q=0.9','User-Agent':'NERO-Tube/1.0'},signal:AbortSignal.timeout(ms)});
   if (!response.ok) throw new Error('HTTP '+response.status);
@@ -21,12 +21,9 @@ async function invidiousInstances() {
   } catch { return IV_FALLBACK.slice(0,6); }
 }
 async function pipedInstances() {
-  let list=PI_FALLBACK.slice();
-  try {
-    const response=await fetch('https://raw.githubusercontent.com/TeamPiped/documentation/main/content/docs/public-instances/index.md',{signal:AbortSignal.timeout(5000)});
-    if(response.ok){const body=await response.text();const found=[...body.matchAll(/https:\/\/[a-z0-9.-]+(?=\s+\|)/gi)].map(x=>x[0]);if(found.length)list=[...found,...list];}
-  } catch {}
-  return [...new Set(list)].slice(0,6);
+  // Keep the two instances confirmed healthy by /api/health/providers at the front.
+  // Do not let an unverified public-instance list push them out of the candidate set.
+  return PI_FALLBACK.slice();
 }
 async function firstWorking(bases, makeRequest) {
   const attempts=bases.map(async base=>{
