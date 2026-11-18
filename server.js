@@ -45,7 +45,7 @@ async function searchVideos(q,page) {
     });
   } catch {}
   return firstWorking(await pipedInstances(),async base=>{
-    const data=await getJson(base+'/search?'+new URLSearchParams({q,filter:'videos'}),5000);
+    const data=await getJson(base+'/search?'+new URLSearchParams({query:q,filter:'videos'}),5000);
     const items=Array.isArray(data)?data:(data.items||[]);
     return items.length?{items,provider:'Piped',base}:null;
   });
