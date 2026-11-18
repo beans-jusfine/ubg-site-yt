@@ -53,14 +53,14 @@ async function loadPlayback(v){
  const request=++playbackRequest;
  try{
   const data=await json('/api/playback/'+encodeURIComponent(v.id),18000);
-  if(request!==playbackRequest||currentVideo?.id!==v.id)return;
+  if(request!==playbackRequest||(currentVideo&&currentVideo.id)!==v.id)return;
   const streams=(data.streams||[]).filter(x=>x&&typeof x.url==='string'&&x.url.startsWith('https://'));
   if(streams.length){
    const embeds=playerSourcesList.filter(x=>x.kind==='embed');
    playerSourcesList=streams.map(x=>({kind:'stream',label:(x.provider||data.provider||'Direct')+' · '+(x.label||'MP4'),url:x.url})).concat(embeds);
    setPlayerSource(0);
   }else setPlayerSource(0);
- }catch{if(request===playbackRequest&&currentVideo?.id===v.id)setPlayerSource(0);}
+ }catch{if(request===playbackRequest&&(currentVideo&&currentVideo.id)===v.id)setPlayerSource(0);}
 }
 function play(v,updateUrl=true){
  currentVideo=v;playerSourcesList=buildPlayerSources(v);
@@ -77,7 +77,7 @@ function play(v,updateUrl=true){
 }
 function closePlayer(updateUrl=true){playbackRequest++;$('#player').hidden=true;$('#stage').innerHTML='';if(updateUrl){const u=new URL(location.href);u.searchParams.delete('v');history.pushState({},'',u)}currentVideo=null}
 function updateSaveButton(){if(!currentVideo)return;const yes=read(SAVED).some(x=>x.id===currentVideo.id);$('#save-current').innerHTML=yes?'<i data-lucide="bookmark-check"></i> Saved':'<i data-lucide="bookmark-plus"></i> Save';renderIcons()}
-function saveVideo(id){const a=read(SAVED),i=a.findIndex(x=>x.id===id);if(i>=0)a.splice(i,1);else a.push({id,at:Date.now()});write(SAVED,a);if(currentVideo?.id===id)updateSaveButton();if(pageName==='saved')loadLocal('saved');else render(items)}
+function saveVideo(id){const a=read(SAVED),i=a.findIndex(x=>x.id===id);if(i>=0)a.splice(i,1);else a.push({id,at:Date.now()});write(SAVED,a);if((currentVideo&&currentVideo.id)===id)updateSaveButton();if(pageName==='saved')loadLocal('saved');else render(items)}
 async function loadLocal(which){const arr=read(which==='saved'?SAVED:HISTORY);$('#load-more').hidden=true;$('#page-title').textContent=which==='saved'?'Saved videos':'Watch history';if(!arr.length){render([]);$('#grid').innerHTML='<p class="empty">'+(which==='saved'?'No saved videos yet.':'No watch history yet.')+'</p>';status(which==='saved'?'Saved videos':'Watch history');return}busy=true;status('Loading '+which+'…');try{const found=[];for(const item of arr.slice().reverse().slice(0,30)){try{const v=await details(item.id);if(v)found.push(v)}catch{}}render(found);status(found.length+' videos · '+provider)}finally{busy=false}}
 function activate(p,skipLoad=false){pageName=p;$('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===p));$('#chips').hidden=p!=='home';$('#page-title').textContent=p==='home'?(new URL(location.href).searchParams.has('search')?'Search results':'Explore'):p==='shorts'?'Shorts':p==='saved'?'Saved videos':'Watch history';$('#load-more').hidden=true;if(skipLoad)return;if(p==='home')search(query);else if(p==='shorts')search('shorts');else loadLocal(p)}
 $('#search-form').addEventListener('submit',e=>{e.preventDefault();const q=$('#query').value.trim();if(q){const u=new URL(location.href);u.searchParams.set('search',q);u.searchParams.delete('v');location.assign(u.href)}});
