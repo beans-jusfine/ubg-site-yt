@@ -88,7 +88,8 @@ const server = http.createServer(async (req,res) => {
   try { if(fs.existsSync(file)&&fs.statSync(file).isDirectory())file=path.join(file,'index.html'); } catch { file=path.join(root,'index.html'); }
   if(!fs.existsSync(file)||!fs.statSync(file).isFile())file=path.join(root,'index.html');
   const ext=path.extname(file);
-  res.writeHead(200,{'Content-Type':types[ext]||'application/octet-stream','Cache-Control':ext==='.html'?'no-cache':'public, max-age=3600','X-Content-Type-Options':'nosniff'});
+  const cacheControl=(ext==='.html'||ext==='.js'||ext==='.css')?'no-store':'public, max-age=3600';
+  res.writeHead(200,{'Content-Type':types[ext]||'application/octet-stream','Cache-Control':cacheControl,'X-Content-Type-Options':'nosniff'});
   fs.createReadStream(file).pipe(res);
 });
 const port=Number(process.env.PORT)||10000;
