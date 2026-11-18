@@ -27,19 +27,40 @@ function renderUpNext(){const list=items.filter(x=>x.id!==currentVideo?.id).slic
 let playerSourcesList=[],playerSourceIndex=0;
 function buildPlayerSources(v){
  const hosts=[...(v.source==='Invidious'&&v.base?[v.base]:[]),...IV_FALLBACK];
- const unique=[...new Set(hosts.map(x=>String(x).replace(/\\/$/,'')))];
- const sources=unique.map(host=>({label:'Invidious · '+new URL(host).host,url:host+'/embed/'+encodeURIComponent(v.id)+'?autoplay=1&controls=1&hl=en-US&local=true&player_style=youtube'}));
- sources.push({label:'Piped',url:'https://piped.video/embed/'+encodeURIComponent(v.id)});
- sources.push({label:'YouTube',url:'https://www.youtube.com/embed/'+encodeURIComponent(v.id)+'?autoplay=1&playsinline=1&rel=0'});
+ const unique=[...new Set(hosts.map(x=>String(x).replace(/[/]+$/,'')))];
+ const sources=unique.map(host=>({kind:'embed',label:'Invidious · '+new URL(host).host,url:host+'/embed/'+encodeURIComponent(v.id)+'?autoplay=1&controls=1&hl=en-US&local=true&player_style=youtube'}));
+ sources.push({kind:'embed',label:'Piped',url:'https://piped.video/embed/'+encodeURIComponent(v.id)});
  return sources;
 }
 function setPlayerSource(index){
  if(!playerSourcesList.length)return;
- playerSourceIndex=(index+playerSourcesList.length)%playerSourcesList.length;
- const source=playerSourcesList[playerSourceIndex],frame=$('#video-frame');
- frame.src=source.url;
+ playerSourceIndex=Math.max(0,Math.min(index,playerSourcesList.length-1));
+ const source=playerSourcesList[playerSourceIndex],stage=$('#stage');
  $('#player-source-label').textContent='Player: '+source.label;
  $('#player-source-count').textContent=(playerSourceIndex+1)+' / '+playerSourcesList.length;
+ if(source.kind==='stream'){
+  stage.innerHTML='<video id="video-element" controls autoplay playsinline preload="metadata"></video>';
+  const video=$('#video-element');video.src=source.url;video.load();
+  video.onerror=()=>{if(playerSourceIndex<playerSourcesList.length-1)setPlayerSource(playerSourceIndex+1);else $('#player-source-label').textContent='Player unavailable · try another video';};
+  video.play().catch(()=>{});
+ }else{
+  stage.innerHTML='<iframe id="video-frame" title="Video player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>';
+  $('#video-frame').src=source.url;
+ }
+}
+let playbackRequest=0;
+async function loadPlayback(v){
+ const request=++playbackRequest;
+ try{
+  const data=await json('/api/playback/'+encodeURIComponent(v.id),18000);
+  if(request!==playbackRequest||currentVideo?.id!==v.id)return;
+  const streams=(data.streams||[]).filter(x=>x&&typeof x.url==='string'&&x.url.startsWith('https://'));
+  if(streams.length){
+   const embeds=playerSourcesList.filter(x=>x.kind==='embed');
+   playerSourcesList=streams.map(x=>({kind:'stream',label:(x.provider||data.provider||'Direct')+' · '+(x.label||'MP4'),url:x.url})).concat(embeds);
+   setPlayerSource(0);
+  }else setPlayerSource(0);
+ }catch{if(request===playbackRequest&&currentVideo?.id===v.id)setPlayerSource(0);}
 }
 function play(v,updateUrl=true){
  currentVideo=v;playerSourcesList=buildPlayerSources(v);
@@ -49,12 +70,12 @@ function play(v,updateUrl=true){
  $('#watch-stats').textContent=[v.views,v.published].filter(Boolean).join(' · ')||'Watch on NERO Tube';
  $('#watch-description-text').textContent='You are watching '+v.title+' by '+(v.author||'YouTube')+'. NERO Tube tries alternative video frontends if playback is unavailable.';
  $('#description-toggle').textContent='Show more';
- $('#stage').innerHTML='<iframe id="video-frame" title="'+esc(v.title)+'" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>';
- setPlayerSource(0);$('#player').hidden=false;renderUpNext();
+ $('#stage').innerHTML='<div class="playback-loading">Preparing video…</div>';
+ setPlayerSource(0);$('#player').hidden=false;renderUpNext();loadPlayback(v);
  const h=read(HISTORY).filter(x=>x.id!==v.id);h.push({id:v.id,title:v.title,author:v.author,at:Date.now()});write(HISTORY,h.slice(-100));
  updateSaveButton();if(updateUrl){const u=new URL(location.href);u.searchParams.set('v',v.id);history.pushState({video:v.id},'',u)}
 }
-function closePlayer(updateUrl=true){$('#player').hidden=true;$('#stage').innerHTML='';if(updateUrl){const u=new URL(location.href);u.searchParams.delete('v');history.pushState({},'',u)}currentVideo=null}
+function closePlayer(updateUrl=true){playbackRequest++;$('#player').hidden=true;$('#stage').innerHTML='';if(updateUrl){const u=new URL(location.href);u.searchParams.delete('v');history.pushState({},'',u)}currentVideo=null}
 function updateSaveButton(){if(!currentVideo)return;const yes=read(SAVED).some(x=>x.id===currentVideo.id);$('#save-current').innerHTML=yes?'<i data-lucide="bookmark-check"></i> Saved':'<i data-lucide="bookmark-plus"></i> Save';renderIcons()}
 function saveVideo(id){const a=read(SAVED),i=a.findIndex(x=>x.id===id);if(i>=0)a.splice(i,1);else a.push({id,at:Date.now()});write(SAVED,a);if(currentVideo?.id===id)updateSaveButton();if(pageName==='saved')loadLocal('saved');else render(items)}
 async function loadLocal(which){const arr=read(which==='saved'?SAVED:HISTORY);$('#load-more').hidden=true;$('#page-title').textContent=which==='saved'?'Saved videos':'Watch history';if(!arr.length){render([]);$('#grid').innerHTML='<p class="empty">'+(which==='saved'?'No saved videos yet.':'No watch history yet.')+'</p>';status(which==='saved'?'Saved videos':'Watch history');return}busy=true;status('Loading '+which+'…');try{const found=[];for(const item of arr.slice().reverse().slice(0,30)){try{const v=await details(item.id);if(v)found.push(v)}catch{}}render(found);status(found.length+' videos · '+provider)}finally{busy=false}}

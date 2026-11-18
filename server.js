@@ -68,8 +68,31 @@ const server = http.createServer(async (req,res) => {
       return sendJson(res,200,{suggestions:Array.isArray(data[1])?data[1].slice(0,10):[]});
     } catch(e) { return sendJson(res,200,{suggestions:[]}); }
   }
-  if(url.pathname==='/api/search' || url.pathname.startsWith('/api/video/')) {
+async function playbackSources(id) {
+  try {
+    return await firstWorking(await invidiousInstances(), async base => {
+      const data = await getJson(base+'/api/v1/videos/'+encodeURIComponent(id)+'?hl=en',6500);
+      const streams = (data.formatStreams || [])
+        .filter(x => x && x.url && String(x.type || x.mimeType || '').includes('video/mp4'))
+        .map(x => ({url:x.url,label:x.qualityLabel || x.quality || 'MP4',type:x.type || x.mimeType || 'video/mp4',provider:'Invidious'}));
+      return streams.length ? {provider:'Invidious',base,streams} : null;
+    });
+  } catch {}
+  return firstWorking(await pipedInstances(), async base => {
+    const data = await getJson(base+'/streams/'+encodeURIComponent(id),6500);
+    const streams = (data.videoStreams || [])
+      .filter(x => x && x.url && !x.videoOnly && String(x.mimeType || '').includes('video/mp4'))
+      .map(x => ({url:x.url,label:x.quality || (x.height ? x.height+'p' : 'MP4'),type:x.mimeType || 'video/mp4',provider:'Piped'}));
+    return streams.length ? {provider:'Piped',base,streams} : null;
+  });
+}
+  if(url.pathname==='/api/search' || url.pathname.startsWith('/api/video/') || url.pathname.startsWith('/api/playback/')) {
     try {
+      if(url.pathname.startsWith('/api/playback/')) {
+        const id=decodeURIComponent(url.pathname.slice('/api/playback/'.length));
+        if(!/^[a-zA-Z0-9_-]{6,20}$/.test(id)) return sendJson(res,400,{error:'Invalid video ID'});
+        return sendJson(res,200,await playbackSources(id));
+      }
       if(url.pathname==='/api/search') {
         const q=(url.searchParams.get('q')||'').trim().slice(0,200);
         if(!q) return sendJson(res,400,{error:'Search query required'});
