@@ -36,6 +36,7 @@ function play(v,updateUrl=true){
  const embed='https://www.youtube-nocookie.com/embed/'+encodeURIComponent(v.id)+'?autoplay=1&controls=1&rel=0&playsinline=1&modestbranding=1';
  $('#stage').innerHTML='<iframe id="video-frame" title="YouTube video player" src="'+embed+'" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>';
  $('#open-youtube').href='https://www.youtube.com/watch?v='+encodeURIComponent(v.id);
+ $('#fullscreen-video').innerHTML='<i data-lucide="maximize"></i> Fullscreen';renderIcons();
  $('#player').hidden=false;renderUpNext();
  const h=read(HISTORY).filter(x=>x.id!==v.id);h.push({id:v.id,title:v.title,author:v.author,at:Date.now()});write(HISTORY,h.slice(-100));
  updateSaveButton();if(updateUrl){const u=new URL(location.href);u.searchParams.set('v',v.id);history.pushState({video:v.id},'',u)}
@@ -52,6 +53,9 @@ $('#grid').addEventListener('click',e=>{const p=e.target.closest('[data-play]'),
 $('#load-more').onclick=()=>{page++;search(query,true)};
 $('#settings-toggle').onclick=()=>$('#settings').hidden=!$('#settings').hidden;
 $('#close-player').onclick=()=>closePlayer();
+$('#fullscreen-video').onclick=async()=>{const stage=$('#stage'),frame=$('#video-frame');try{if(document.fullscreenElement){await document.exitFullscreen();return}if(stage.requestFullscreen)await stage.requestFullscreen();else if(frame?.requestFullscreen)await frame.requestFullscreen();else throw new Error('Fullscreen is not supported by this browser')}catch(e){try{if(frame?.requestFullscreen)await frame.requestFullscreen();else throw e}catch(err){status('Fullscreen blocked. Allow fullscreen for NERO Tube in your browser settings.')}}};
+document.addEventListener('fullscreenchange',()=>{const b=$('#fullscreen-video');if(!b)return;const active=!!document.fullscreenElement;b.innerHTML=active?'<i data-lucide="minimize"></i> Exit fullscreen':'<i data-lucide="maximize"></i> Fullscreen';b.setAttribute('aria-label',active?'Exit fullscreen':'Enter fullscreen');renderIcons()});
+
 
 $('#player').addEventListener('click',e=>{if(e.target===$('#player'))closePlayer()});
 $('#up-next-list').addEventListener('click',e=>{const b=e.target.closest('[data-next]');if(!b)return;const v=items.find(x=>x.id===b.dataset.next);if(v)play(v)});
