@@ -24,54 +24,18 @@ async function search(q=query,append=false){if(busy)return;busy=true;query=q;rem
 async function details(id){const data=await json('/api/video/'+encodeURIComponent(id),18000);return normalize(data.video,data.provider||'YouTube',data.base||'')}
 async function personalizedFeed(){if(busy)return;const searches=read(SEARCHES),watched=read(HISTORY).slice().reverse(),candidates=[];for(const x of searches.slice(0,8)){const q=String(x.q||x).trim();if(q)candidates.push(q)}for(const x of watched.slice(0,12)){const title=String(x.title||'').trim(),author=String(x.author||'').trim();if(title)candidates.push([title.split(/\\s+/).slice(0,5).join(' '),author].filter(Boolean).join(' '));else if(author)candidates.push(author+' videos')}const terms=[...new Set(candidates)].slice(0,4);if(!terms.length){search('popular videos');return}busy=true;status('Building your mix from your searches and watches…');let combined=[];try{const batches=await Promise.all(terms.map(async q=>{try{const d=await json('/api/search?q='+encodeURIComponent(q)+'&page=1',18000);return(Array.isArray(d.items)?d.items:[]).map(v=>normalize(v,d.provider||'YouTube',d.base||'')).filter(Boolean)}catch{return[]}}));const seen=new Set();for(const batch of batches)for(const v of batch)if(!seen.has(v.id)){seen.add(v.id);combined.push(v)}}finally{busy=false}if(!combined.length){search('popular videos');return}render(combined);$('#provider-status').textContent='Personalized mix · based on your activity';status('Your mix · based on '+searches.length+' searches and '+watched.length+' watches');$('#load-more').hidden=true}
 function renderUpNext(){const list=items.filter(x=>x.id!==(currentVideo&&currentVideo.id)).slice(0,12);$('#up-next-list').innerHTML=list.map(v=>'<button class="up-next-item" data-next="'+esc(v.id)+'"><span class="up-next-thumb"><img src="'+esc(v.thumb)+'" alt="" loading="lazy">'+(v.duration?'<span class="video-duration">'+esc(v.duration)+'</span>':'')+'</span><span class="up-next-info"><strong>'+esc(v.title)+'</strong><span>'+esc(v.author)+'</span></span></button>').join('')||'<p class="up-next-empty">Search results and recommendations will appear here.</p>'}
-let playerSourcesList=[],playerSourceIndex=0;
-function buildPlayerSources(v){
- const hosts=[...(v.source==='Invidious'&&v.base?[v.base]:[]),...IV_FALLBACK];
- const unique=[...new Set(hosts.map(x=>String(x).replace(/[/]+$/,'')))];
- const sources=unique.map(host=>({kind:'embed',label:'Invidious · '+new URL(host).host,url:host+'/embed/'+encodeURIComponent(v.id)+'?autoplay=1&controls=1&hl=en-US&local=true&player_style=youtube'}));
- sources.push({kind:'embed',label:'Piped',url:'https://piped.video/embed/'+encodeURIComponent(v.id)});
- return sources;
-}
-function setPlayerSource(index){
- if(!playerSourcesList.length)return;
- playerSourceIndex=Math.max(0,Math.min(index,playerSourcesList.length-1));
- const source=playerSourcesList[playerSourceIndex],stage=$('#stage');
- $('#player-source-label').textContent='Player: '+source.label;
- $('#player-source-count').textContent=(playerSourceIndex+1)+' / '+playerSourcesList.length;
- if(source.kind==='stream'){
-  stage.innerHTML='<video id="video-element" controls autoplay playsinline preload="metadata"></video>';
-  const video=$('#video-element');video.src=source.url;video.load();
-  video.onerror=()=>{if(playerSourceIndex<playerSourcesList.length-1)setPlayerSource(playerSourceIndex+1);else $('#player-source-label').textContent='Player unavailable · try another video';};
-  video.play().catch(()=>{});
- }else{
-  stage.innerHTML='<iframe id="video-frame" title="Video player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>';
-  $('#video-frame').src=source.url;
- }
-}
-let playbackRequest=0;
-async function loadPlayback(v){
- const request=++playbackRequest;
- try{
-  const data=await json('/api/playback/'+encodeURIComponent(v.id),18000);
-  if(request!==playbackRequest||(currentVideo&&currentVideo.id)!==v.id)return;
-  const streams=(data.streams||[]).filter(x=>x&&typeof x.url==='string'&&x.url.startsWith('https://'));
-  if(streams.length){
-   const embeds=playerSourcesList.filter(x=>x.kind==='embed');
-   playerSourcesList=streams.map(x=>({kind:'stream',label:(x.provider||data.provider||'Direct')+' · '+(x.label||'MP4'),url:x.url})).concat(embeds);
-   setPlayerSource(0);
-  }else setPlayerSource(0);
- }catch{if(request===playbackRequest&&(currentVideo&&currentVideo.id)===v.id)setPlayerSource(0);}
-}
 function play(v,updateUrl=true){
- currentVideo=v;playerSourcesList=buildPlayerSources(v);
+ currentVideo=v;
  $('#player-title').textContent=v.title;$('#player-author').textContent=v.author||'YouTube';
  $('#player-avatar').innerHTML=v.avatar?'<img src="'+esc(v.avatar)+'" alt="" referrerpolicy="no-referrer">':esc((v.author||'N').slice(0,1).toUpperCase());
- $('#player-channel-label').textContent='NERO Tube channel';
- $('#watch-stats').textContent=[v.views,v.published].filter(Boolean).join(' · ')||'Watch on NERO Tube';
- $('#watch-description-text').textContent='You are watching '+v.title+' by '+(v.author||'YouTube')+'. NERO Tube tries alternative video frontends if playback is unavailable.';
+ $('#player-channel-label').textContent='YouTube';
+ $('#watch-stats').textContent=[v.views,v.published].filter(Boolean).join(' · ')||'Watch on YouTube';
+ $('#watch-description-text').textContent='Playing with the official YouTube embedded player.';
  $('#description-toggle').textContent='Show more';
- $('#stage').innerHTML='<div class="playback-loading">Preparing video…</div>';
- setPlayerSource(0);$('#player').hidden=false;renderUpNext();loadPlayback(v);
+ const embed='https://www.youtube-nocookie.com/embed/'+encodeURIComponent(v.id)+'?autoplay=1&controls=1&rel=0&playsinline=1&modestbranding=1';
+ $('#stage').innerHTML='<iframe id="video-frame" title="YouTube video player" src="'+embed+'" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>';
+ $('#open-youtube').href='https://www.youtube.com/watch?v='+encodeURIComponent(v.id);
+ $('#player').hidden=false;renderUpNext();
  const h=read(HISTORY).filter(x=>x.id!==v.id);h.push({id:v.id,title:v.title,author:v.author,at:Date.now()});write(HISTORY,h.slice(-100));
  updateSaveButton();if(updateUrl){const u=new URL(location.href);u.searchParams.set('v',v.id);history.pushState({video:v.id},'',u)}
 }
@@ -87,7 +51,7 @@ $('#grid').addEventListener('click',e=>{const p=e.target.closest('[data-play]'),
 $('#load-more').onclick=()=>{page++;search(query,true)};
 $('#settings-toggle').onclick=()=>$('#settings').hidden=!$('#settings').hidden;
 $('#close-player').onclick=()=>closePlayer();
-$('#try-player-again').onclick=()=>setPlayerSource(playerSourceIndex+1);
+
 $('#player').addEventListener('click',e=>{if(e.target===$('#player'))closePlayer()});
 $('#up-next-list').addEventListener('click',e=>{const b=e.target.closest('[data-next]');if(!b)return;const v=items.find(x=>x.id===b.dataset.next);if(v)play(v)});
 $('#subscribe-btn').onclick=()=>{const b=$('#subscribe-btn');b.classList.toggle('subscribed');b.textContent=b.classList.contains('subscribed')?'Subscribed':'Subscribe'};
